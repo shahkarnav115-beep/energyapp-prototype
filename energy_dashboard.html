@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy Hub</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Load Lucide icons -->
+    <script type="module" src="https://unpkg.com/lucide-react@latest/dist/lucide.umd.js"></script>
+    <!-- Fallback for Lucide icons -->
+    <script nomodule src="https://unpkg.com/lucide-react@latest/dist/lucide.min.js"></script>
+
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        /* Page transition styles */
+        .page {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom modal backdrop */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s ease-out;
+            z-index: 40;
+        }
+        .modal-backdrop.active {
+            display: block;
+        }
+        /* Custom modal panel */
+        .modal-panel {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 50;
+            animation: modalIn 0.3s ease-out;
+        }
+        .modal-panel.active {
+            display: block;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translate(-50%, -45%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+        /* Scanning animation */
+        @keyframes scanner {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(60px); }
+            100% { transform: translateY(0); }
+        }
+        .scanner-line {
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(to right, transparent, #3b82f6, transparent);
+            box-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+            animation: scanner 2s ease-in-out infinite;
+            border-radius: 50%;
+        }
+        /* Chat bubble styles */
+        .chat-bubble-user {
+            background-color: #3b82f6; /* blue-600 */
+            color: white;
+            border-bottom-right-radius: 0.125rem; /* rounded-br-sm */
+        }
+        .chat-bubble-ai {
+            background-color: #e5e7eb; /* gray-200 */
+            color: #1f2937; /* gray-800 */
+            border-bottom-left-radius: 0.125rem; /* rounded-bl-sm */
+        }
+        /* Tab styles */
+        .tab-btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .tab-btn.active {
+            color: #3b82f6; /* blue-600 */
+            border-bottom-color: #3b82f6; /* blue-600 */
+        }
+        /* Sparkle button */
+        .sparkle-btn {
+            background: linear-gradient(to right, #6366f1, #3b82f6);
+            color: white;
+            transition: all 0.2s ease-in-out;
+        }
+        .sparkle-btn:hover {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+        }
+        .sparkle-btn:disabled {
+             background: #9ca3af; /* gray-400 */
+             cursor: not-allowed;
+             box-shadow: none;
+        }
+        /* Settings Input */
+        .settings-input {
+            width: 6rem; /* Fixed width for consistency */
+            text-align: right;
+        }
+        /* Peak Hour Warning */
+        .peak-warning {
+            background-color: #fffbeb; /* yellow-50 */
+            color: #d97706; /* amber-600 */
+            border-left: 4px solid #f59e0b; /* amber-500 */
+        }
+        /* Summary Cards - Make them span correctly */
+        .summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)); /* Default 2 columns */
+        }
+        @media (min-width: 1024px) { /* On larger screens (lg), use 4 columns */
+             .summary-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+             }
+        }
+    </style>
+</head>
+<body class="max-w-4xl mx-auto p-4 md:p-6">
+
+    <!-- Header -->
+    <header class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-zap text-blue-600 mr-2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Smart Energy Hub
+        </h1>
+        <p class="text-gray-600">Your all-in-one appliance manager.</p>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <div class="mb-6 border-b border-gray-300">
+        <nav class="flex -mb-px">
+            <button id="tab-btn-saved" class="tab-btn py-3 px-5 font-medium text-gray-500 border-b-2 border-transparent" onclick="showMainPage('saved')">
+                Saved Devices
+            </button>
+            <button id="tab-btn-add" class="tab-btn py-3 px-5 font-medium text-gray-500 border-b-2 border-transparent" onclick="showMainPage('add')">
+                Add New Device
+            </button>
+             <!-- NEW: History Tab -->
+            <button id="tab-btn-history" class="tab-btn py-3 px-5 font-medium text-gray-500 border-b-2 border-transparent" onclick="showMainPage('history')">
+                Usage History
+            </button>
+        </nav>
+    </div>
+
+     <!-- Settings Section -->
+     <section id="settings-section" class="mb-6 p-4 bg-white rounded-lg shadow border border-gray-200">
+        <h3 class="text-md font-semibold text-gray-800 mb-2 flex items-center">
+             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-2 mr-2 text-gray-600"><path d="M20 7h-9"></path><path d="M14 17H5"></path><circle cx="17" cy="17" r="3"></circle><circle cx="7" cy="7" r="3"></circle></svg>
+            Settings
+        </h3>
+        <div class="flex items-center space-x-2">
+            <label for="cost-kwh" class="text-sm text-gray-600">Cost per kWh (₹):</label>
+            <input type="number" id="cost-kwh" value="8.0" step="0.1" min="0" class="settings-input border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+        </div>
+     </section>
+
+
+    <!-- MAIN PAGE: Saved Devices -->
+    <main id="page-saved" class="page active">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-semibold text-gray-800">My Devices</h2>
+            <button id="btn-go-to-dashboard" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium shadow-md hover:bg-blue-700 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed">
+                Go to Energy Dashboard
+            </button>
+        </div>
+
+        <!-- Device List for "Saved" -->
+        <div id="saved-devices-list" class="space-y-4">
+            <!-- Devices will be added here by JS -->
+        </div>
+
+        <!-- Empty State for "Saved" -->
+        <div id="saved-empty-state" class="text-center p-10 bg-white rounded-lg shadow border border-gray-200">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-inbox text-gray-400 mx-auto mb-3"><rect width="16" height="16" x="4" y="4" rx="2"></rect><path d="m4 13 3 3 3-3"></path><path d="m14 13 3 3 3-3"></path></svg>
+            <h3 class="font-semibold text-lg text-gray-800">No devices saved</h3>
+            <p class="text-gray-500">Go to the "Add New Device" tab to set up your first appliance.</p>
+        </div>
+    </main>
+
+    <!-- MAIN PAGE: Add New Device -->
+    <main id="page-add" class="page">
+        <!-- Sub-navigation for Add Device -->
+        <div class="mb-6 border-b border-gray-200 bg-white rounded-lg shadow-sm">
+            <nav class="flex -mb-px px-4">
+                <button id="sub-tab-btn-smart" class="tab-btn py-3 px-5 font-medium text-gray-500 border-b-2 border-transparent" onclick="showAddPage('smart')">
+                    Smart Scan (Energy)
+                </button>
+                <button id="sub-tab-btn-ir" class="tab-btn py-3 px-5 font-medium text-gray-500 border-b-2 border-transparent" onclick="showAddPage('ir')">
+                    IR Blaster (Control)
+                </button>
+            </nav>
+        </div>
+
+        <!-- Add Device Sub-Page: Smart Scan -->
+        <div id="add-page-smart" class="page">
+            <p class="text-gray-600 mb-4">Add Wi-Fi devices that can report their energy usage.</p>
+            <div id="add-smart-devices-list" class="space-y-4">
+                <!-- Smart devices to be added will appear here -->
+            </div>
+             <!-- Empty state removed -->
+        </div>
+
+        <!-- Add Device Sub-Page: IR Blaster -->
+        <div id="add-page-ir" class="page">
+            <p class="text-gray-600 mb-4">Set up "dumb" devices (like TVs or older ACs) to be controlled with your phone's IR blaster.</p>
+            <div id="add-ir-devices-list" class="space-y-4">
+                <!-- IR devices to be added will appear here -->
+            </div>
+             <!-- Empty state removed -->
+        </div>
+    </main>
+
+    <!-- MAIN PAGE: Dashboard -->
+    <main id="page-dashboard" class="page">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800">Energy Dashboard</h2>
+                <button id="btn-overall-tips" class="sparkle-btn mt-2 text-sm px-4 py-1.5 rounded-full font-medium shadow-md flex items-center gap-1" onclick="getOverallTipsWithGemini()">
+                    ✨ Get Overall Savings Tips
+                </button>
+            </div>
+            <button onclick="showMainPage('saved')" class="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg font-medium hover:bg-gray-300 transition-all">
+                &larr; Back to Devices
+            </button>
+        </div>
+
+        <!-- Summary Cards - UPDATED GRID -->
+         <div class="summary-grid grid gap-6 mb-6">
+             <div class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-5 rounded-lg shadow-lg">
+                 <h3 class="text-sm font-semibold mb-1 opacity-90">Total Estimated Cost Today</h3>
+                 <div class="text-2xl font-bold" id="summary-total-cost">₹ --.--</div>
+             </div>
+             <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-5 rounded-lg shadow-lg">
+                 <h3 class="text-sm font-semibold mb-1 opacity-90">Total Carbon Footprint Today</h3>
+                 <div class="text-2xl font-bold" id="summary-total-carbon">--.-- kg CO₂e</div>
+             </div>
+             <div class="bg-gradient-to-r from-gray-500 to-slate-600 text-white p-5 rounded-lg shadow-lg">
+                 <h3 class="text-sm font-semibold mb-1 opacity-90">Est. Phantom Drain Today</h3>
+                 <div class="text-2xl font-bold" id="summary-phantom-drain">--.-- kWh</div>
+                  <p class="text-xs opacity-80 mt-1">Energy used by devices when 'off'.</p>
+             </div>
+              <!-- Monthly Estimate Card -->
+             <div class="bg-gradient-to-r from-purple-500 to-violet-600 text-white p-5 rounded-lg shadow-lg">
+                 <h3 class="text-sm font-semibold mb-1 opacity-90">Est. Monthly Consumption</h3>
+                 <div class="text-2xl font-bold" id="summary-monthly-kwh">--- kWh</div>
+                  <p class="text-xs opacity-80 mt-1">Projected based on today's usage.</p>
+             </div>
+         </div>
+
+
+        <!-- Dashboard Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Device Cards -->
+            <div id="dash-card-fridge" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <!-- Peak Hour Warning Placeholder -->
+                <div id="peak-warning-fridge" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                    ⚡ Peak Hour Usage!
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">🧊 Refrigerator</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Live Power:</span>
+                        <span id="data-fridge-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Use:</span>
+                        <span id="data-fridge-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-fridge-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div id="alert-fridge" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                    <span id="alert-text-fridge"></span>
+                    <button id="alert-btn-fridge" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('fridge')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-ac_smart" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-ac_smart" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">❄️ Air Conditioner</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Live Power:</span>
+                        <span id="data-ac_smart-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Use:</span>
+                        <span id="data-ac_smart-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-ac_smart-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div id="alert-ac_smart" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-ac_smart"></span>
+                     <button id="alert-btn-ac_smart" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('ac_smart')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-washer" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-washer" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">🧺 Washing Machine</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Live Power:</span>
+                        <span id="data-washer-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Use:</span>
+                        <span id="data-washer-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Water Use:</span>
+                        <span id="data-washer-water" class="font-bold text-blue-700">--- L</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-washer-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div id="alert-washer" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-washer"></span>
+                     <button id="alert-btn-washer" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('washer')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-dishwasher" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-dishwasher" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">🍽️ Dishwasher</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Live Power:</span>
+                        <span id="data-dishwasher-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Use:</span>
+                        <span id="data-dishwasher-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Water Use:</span>
+                        <span id="data-dishwasher-water" class="font-bold text-blue-700">--- L</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-dishwasher-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div id="alert-dishwasher" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-dishwasher"></span>
+                     <button id="alert-btn-dishwasher" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('dishwasher')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-projector_smart" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-projector_smart" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">📽️ Projector (Smart)</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Live Power:</span>
+                        <span id="data-projector_smart-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Today's Use:</span>
+                        <span id="data-projector_smart-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-projector_smart-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div id="alert-projector_smart" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-projector_smart"></span>
+                     <button id="alert-btn-projector_smart" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('projector_smart')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <!-- IR DEVICE CARDS (ESTIMATED) -->
+            <div id="dash-card-tv_ir" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-tv_ir" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">📺 Television (IR)</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Power:</span>
+                        <span id="data-tv_ir-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Use:</span>
+                        <span id="data-tv_ir-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                     <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-tv_ir-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500 italic">Power is estimated based on device state.</div>
+                <div id="alert-tv_ir" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-tv_ir"></span>
+                     <button id="alert-btn-tv_ir" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('tv_ir')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-ac_ir" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-ac_ir" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                     ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">❄️ Air Conditioner (IR)</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Power:</span>
+                        <span id="data-ac_ir-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Use:</span>
+                        <span id="data-ac_ir-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-ac_ir-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500 italic">Power is estimated based on device state.</div>
+                <div id="alert-ac_ir" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-ac_ir"></span>
+                     <button id="alert-btn-ac_ir" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('ac_ir')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+
+            <div id="dash-card-projector_ir" class="dash-card bg-white p-5 rounded-lg shadow border border-gray-200 hidden">
+                 <div id="peak-warning-projector_ir" class="peak-warning p-2 rounded-md text-xs font-medium mb-3 hidden items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+                    ⚡ Peak Hour Usage!
+                 </div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-3">📽️ Projector (IR)</h3>
+                <div class="space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Power:</span>
+                        <span id="data-projector_ir-power" class="font-bold text-gray-900">--- W</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Est. Use:</span>
+                        <span id="data-projector_ir-kwh" class="font-bold text-gray-900">--- kWh</span>
+                    </div>
+                    <div class="flex justify-between border-t pt-2 mt-2 border-gray-100">
+                        <span class="text-gray-600">Est. Cost Today:</span>
+                        <span id="data-projector_ir-cost" class="font-bold text-green-700">₹ --.--</span>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500 italic">Power is estimated based on device state.</div>
+                <div id="alert-projector_ir" class="mt-4 p-3 bg-red-100 text-red-800 rounded-md text-sm font-medium hidden items-center justify-between gap-2">
+                     <span id="alert-text-projector_ir"></span>
+                     <button id="alert-btn-projector_ir" class="sparkle-btn text-xs px-2 py-1 rounded-full whitespace-nowrap" onclick="analyzeAlertWithGemini('projector_ir')">✨ Ask Gemini Why</button>
+                </div>
+            </div>
+            <!-- End Device Cards -->
+        </div>
+
+        <!-- AI Assistant -->
+        <div class="mt-8 bg-white rounded-lg shadow border border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900 p-5 border-b border-gray-200 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sparkles text-blue-600 mr-2"><path d="m12 3-1.9 4.8-4.8 1.9 4.8 1.9 1.9 4.8 1.9-4.8 4.8-1.9-4.8-1.9Z"></path><path d="M5 12s2.5-1.5 5-3 5 3 5 3"></path><path d="M5 19s2.5-1.5 5-3 5 3 5 3"></path></svg>
+                AI Assistant "Sparky"
+            </h3>
+            <div id="chat-window" class="p-5 h-64 overflow-y-auto space-y-4">
+                <!-- Chat messages will be added here -->
+            </div>
+            <div class="p-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                <div class="flex space-x-3">
+                    <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ask about energy, water, or costs...">
+                    <button id="chat-submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg font-medium shadow-md hover:bg-blue-700 transition-all disabled:bg-gray-400">
+                        Send
+                    </button>
+                </div>
+                 <!-- Quick Query Buttons -->
+                 <div class="mt-3 flex flex-wrap gap-2">
+                     <button class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200" onclick="sendQuickQuery('⚡ What\'s using the most power right now?')">⚡ What's using most?</button>
+                     <button class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200" onclick="sendQuickQuery('💡 Give me a tip for my Air Conditioner')">💡 Tip for AC?</button>
+                     <button class="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200" onclick="sendQuickQuery('💰 Can you estimate my total electricity bill for the month based on today?')">💰 Estimate Bill?</button>
+                 </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- NEW: Usage History Page -->
+    <main id="page-history" class="page">
+         <h2 class="text-2xl font-semibold text-gray-800 mb-4">Simulated Usage History</h2>
+         <p class="text-gray-600 mb-6">View simulated historical energy consumption for your devices.</p>
+
+         <div class="bg-white p-5 rounded-lg shadow border border-gray-200">
+             <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                 <!-- Device Selector (Non-functional Placeholder) -->
+                 <div class="flex-1">
+                     <label for="history-device-select" class="block text-sm font-medium text-gray-700 mb-1">Select Device</label>
+                     <select id="history-device-select" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                         <option>Refrigerator (Simulated)</option>
+                         <option>Air Conditioner (Simulated)</option>
+                         <option>All Devices (Simulated)</option>
+                         <!-- In a real app, this would be populated dynamically -->
+                     </select>
+                 </div>
+                 <!-- Time Range Selector (Non-functional Placeholder) -->
+                  <div class="flex-1">
+                     <label for="history-range-select" class="block text-sm font-medium text-gray-700 mb-1">Select Range</label>
+                     <select id="history-range-select" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                         <option>Last 24 Hours (Hourly)</option>
+                         <option>Last 7 Days (Daily)</option>
+                         <option>Last 12 Months (Monthly)</option>
+                     </select>
+                 </div>
+             </div>
+
+             <!-- Placeholder for Graph -->
+             <div class="h-64 bg-gray-100 rounded-lg flex items-center justify-center border border-dashed border-gray-300">
+                 <div class="text-center text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-line-chart mx-auto mb-2"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
+                     <p class="font-medium">Simulated Usage Graph Area</p>
+                     <p class="text-sm">Historical data would be displayed here.</p>
+                 </div>
+             </div>
+
+             <p class="text-xs text-gray-500 mt-4 italic text-center">*Note: Historical data is simulated for this prototype.</p>
+         </div>
+    </main>
+
+
+    <!-- MODALS -->
+
+    <!-- Smart Scan Modal -->
+    <div id="modal-backdrop-smart" class="modal-backdrop" onclick="closeModal('smart')"></div>
+    <div id="modal-panel-smart" class="modal-panel bg-white rounded-lg shadow-xl w-full max-w-md">
+        <!-- Scanning State -->
+        <div id="modal-scan-state" class="p-6 text-center">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Scanning for devices...</h3>
+            <div class="relative h-20 w-full max-w-xs mx-auto overflow-hidden rounded-lg bg-gray-100">
+                <div class="scanner-line absolute top-0 left-0"></div>
+            </div>
+            <p class="text-sm text-gray-600 mt-4">Simulating scan for nearby smart appliances...</p>
+        </div>
+        <!-- Found State -->
+        <div id="modal-found-state" class="p-6 hidden">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Devices Found</h3>
+            <div id="found-devices-list" class="space-y-2">
+                <!-- JS will populate this -->
+            </div>
+            <button class="mt-6 w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300" onclick="closeModal('smart')">
+                Cancel
+            </button>
+        </div>
+    </div>
+
+    <!-- IR Setup Modal -->
+    <div id="modal-backdrop-ir" class="modal-backdrop" onclick="closeModal('ir')"></div>
+    <div id="modal-panel-ir" class="modal-panel bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+        <h3 id="modal-ir-title" class="text-lg font-medium text-gray-900 mb-4">Set up IR Device</h3>
+
+        <!-- Step 1: Select Brand -->
+        <div id="modal-ir-step1">
+            <label for="ir-brand-select" class="block text-sm font-medium text-gray-700 mb-1">1. Select Brand</label>
+            <select id="ir-brand-select" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option>Samsung</option>
+                <option>LG</option>
+                <option>Sony</option>
+                <option>Panasonic</option>
+                <option>Epson</option>
+                <option>BenQ</option>
+                <option>Other</option>
+            </select>
+        </div>
+
+        <!-- Step 2: Test -->
+        <div id="modal-ir-step2" class="mt-6">
+            <p class="text-sm font-medium text-gray-700 mb-2">2. Point your phone at the device and test the power button.</p>
+            <div class="text-center">
+                <button class="bg-blue-600 text-white rounded-full w-20 h-20 flex items-center justify-center mx-auto shadow-lg hover:bg-blue-700 active:scale-95 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-power"><path d="M12 2v10"></path><path d="M18.4 6.6a9 9 0 1 1-12.79.03"></path></svg>
+                </button>
+                <p class="text-sm text-gray-500 mt-2">(Simulating IR signal...)</p>
+            </div>
+        </div>
+
+        <!-- Step 3: Confirm -->
+        <div id="modal-ir-step3" class="mt-6">
+            <p class="text-lg font-medium text-center text-gray-900">Did it work?</p>
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <button class="py-2 px-4 rounded-md shadow-sm text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200" onclick="closeModal('ir')">
+                    No, try again
+                </button>
+                <button id="btn-ir-confirm" class="py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700">
+                    Yes, it worked!
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+
+    <script>
+        // --- API & State ---
+
+        // This is our in-memory database
+        const allDevices = {
+            "fridge": {
+                id: "fridge", name: "Refrigerator", icon: "🧊", type: "smart", savedName: null, connected: false,
+                basePower: 80, cyclePower: 120, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "ac_smart": {
+                id: "ac_smart", name: "Air Conditioner", icon: "❄️", type: "smart", savedName: null, connected: false,
+                basePower: 300, cyclePower: 1500, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "washer": {
+                id: "washer", name: "Washing Machine", icon: "🧺", type: "smart", savedName: null, connected: false,
+                basePower: 100, cyclePower: 500, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "dishwasher": {
+                id: "dishwasher", name: "Dishwasher", icon: "🍽️", type: "smart", savedName: null, connected: false,
+                basePower: 250, cyclePower: 1250, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "projector_smart": {
+                id: "projector_smart", name: "Projector (Smart)", icon: "📽️", type: "smart", savedName: null, connected: false,
+                basePower: 50, cyclePower: 250, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "tv_ir": {
+                id: "tv_ir", name: "Television (IR)", icon: "📺", type: "ir", savedName: null, irOn: false,
+                basePower: 20, cyclePower: 130, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "ac_ir": {
+                id: "ac_ir", name: "Air Conditioner (IR)", icon: "❄️", type: "ir", savedName: null, irOn: false,
+                basePower: 300, cyclePower: 1500, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            },
+            "projector_ir": {
+                id: "projector_ir", name: "Projector (IR)", icon: "📽️", type: "ir", savedName: null, irOn: false,
+                basePower: 50, cyclePower: 250, kwh: 0, lastUpdate: 0, currentWatts: 0, currentAlert: null, waterUsageLiters: 0
+            }
+        };
+
+        let currentModalDevice = null;
+        let simulationInterval = null;
+        let costPerKwh = 8.0; // Default cost
+        const carbonFactorKgPerKwh = 0.7; // Approx factor for India
+        const phantomDrainPerDevicePerHour = 0.003; // Simulated kWh per device per hour when "off"
+        const peakHoursStart = 18; // 6 PM
+        const peakHoursEnd = 22; // 10 PM
+        let sessionStartTime = Date.now(); // Track when the session started
+
+        // --- Navigation ---
+
+        function showMainPage(pageId) {
+            document.querySelectorAll('#page-saved, #page-add, #page-dashboard, #page-history').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(`page-${pageId}`).classList.add('active');
+
+            document.querySelectorAll('#tab-btn-saved, #tab-btn-add, #tab-btn-history').forEach(btn => {
+                btn.classList.remove('active', 'text-blue-600', 'border-blue-600');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+
+            const tabButton = document.getElementById(`tab-btn-${pageId}`);
+            if (tabButton) {
+                tabButton.classList.add('active', 'text-blue-600', 'border-blue-600');
+            }
+
+            if (pageId === 'dashboard') {
+                startSimulation();
+            } else {
+                stopSimulation();
+            }
+
+            if (pageId === 'saved' || pageId === 'add') {
+                renderAllLists();
+            }
+             // Show settings only on saved/add pages
+             document.getElementById('settings-section').style.display = (pageId === 'saved' || pageId === 'add') ? 'block' : 'none';
+        }
+
+        function showAddPage(pageId) {
+            document.querySelectorAll('#add-page-smart, #add-page-ir').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(`add-page-${pageId}`).classList.add('active');
+
+            document.querySelectorAll('#sub-tab-btn-smart, #sub-tab-btn-ir').forEach(btn => {
+                btn.classList.remove('active', 'text-blue-600', 'border-blue-600');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+            document.getElementById(`sub-tab-btn-${pageId}`).classList.add('active', 'text-blue-600', 'border-blue-600');
+        }
+
+        // --- Device Card Rendering ---
+
+        function renderAllLists() {
+            const savedListEl = document.getElementById('saved-devices-list');
+            const addSmartListEl = document.getElementById('add-smart-devices-list');
+            const addIrListEl = document.getElementById('add-ir-devices-list');
+
+            savedListEl.innerHTML = '';
+            addSmartListEl.innerHTML = ''; // Clear add lists
+            addIrListEl.innerHTML = '';   // Clear add lists
+
+            let savedCount = 0;
+
+            for (const deviceId in allDevices) {
+                const device = allDevices[deviceId];
+                // Render SAVED devices
+                if (device.savedName) {
+                    savedListEl.innerHTML += createDeviceCard(device);
+                    savedCount++;
+                }
+                // Render ALL devices in the ADD lists
+                if (device.type === 'smart') {
+                    addSmartListEl.innerHTML += createAddDeviceCard(device);
+                } else if (device.type === 'ir') {
+                    addIrListEl.innerHTML += createAddDeviceCard(device);
+                }
+            }
+
+            // Handle empty state ONLY for saved list
+            document.getElementById('saved-empty-state').style.display = savedCount > 0 ? 'none' : 'block';
+
+            updateDashboardButton();
+        }
+
+        // Card specifically for the "Add New Device" lists
+        function createAddDeviceCard(device) {
+             const btnText = device.type === 'smart' ? 'Add Device' : 'Set Up IR';
+             const clickAction = device.type === 'smart' ? `openModal('smart', '${device.id}')` : `openModal('ir', '${device.id}')`;
+             return `
+                 <div class="bg-white p-5 rounded-lg shadow border border-gray-200 flex items-center justify-between">
+                     <div class="flex items-center space-x-4">
+                         <div class="text-3xl">${device.icon}</div>
+                         <div>
+                             <h3 class="text-lg font-semibold text-gray-900">${device.name}</h3>
+                             <div class="text-sm text-gray-500">Available to add</div>
+                         </div>
+                     </div>
+                     <button class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300" onclick="${clickAction}">
+                         ${btnText}
+                     </button>
+                 </div>
+             `;
+        }
+
+        // Card for the "Saved Devices" list (unchanged)
+        function createDeviceCard(device) {
+            let statusText, statusDot, buttons;
+
+            if (device.savedName) { // Should always be true here
+                if (device.type === 'smart') {
+                    if (device.connected) {
+                        statusText = `<span class="text-green-600 font-medium">Connected</span>`;
+                        statusDot = `<div class="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>`;
+                        buttons = `
+                            <button class="bg-red-100 text-red-700 px-4 py-2 rounded-lg font-medium hover:bg-red-200" onclick="disconnectDevice('${device.id}')">Disconnect</button>
+                        `;
+                    } else {
+                        statusText = `<span class="text-gray-600">Disconnected</span>`;
+                        statusDot = `<div class="w-3 h-3 bg-gray-400 rounded-full"></div>`;
+                        buttons = `
+                            <button class="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300" onclick="openModal('smart', '${device.id}')">Scan New</button>
+                            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700" onclick="connectDevice('${device.id}')">Connect Saved</button>
+                        `;
+                    }
+                } else { // IR DEVICE
+                    statusText = `<span class="text-blue-600 font-medium">IR Remote: ${device.savedName}</span>`;
+                    statusDot = `<div class="w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>`;
+                    const toggleBg = device.irOn ? 'bg-blue-600' : 'bg-gray-200';
+                    const toggleTransform = device.irOn ? 'translate-x-6' : 'translate-x-1';
+                    buttons = `
+                        <span class="text-sm font-medium text-gray-700 mr-2">${device.irOn ? 'ON' : 'OFF'}</span>
+                        <button class="relative inline-flex items-center h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${toggleBg}" onclick="toggleIR('${device.id}')">
+                            <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition duration-200 ease-in-out ${toggleTransform}"></span>
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="bg-white p-5 rounded-lg shadow border border-gray-200 flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="text-3xl">${device.icon}</div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-900">${device.type === 'smart' ? device.savedName : device.name}</h3>
+                                <div class="flex items-center space-x-2 text-sm">
+                                    ${statusDot}
+                                    ${statusText}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            ${buttons}
+                        </div>
+                    </div>
+                `;
+            } else {
+                 return ''; // Should not happen in saved list
+            }
+        }
+
+
+        // --- Device Actions ---
+
+        function connectDevice(deviceId) {
+            allDevices[deviceId].connected = true;
+            renderAllLists();
+        }
+
+        function disconnectDevice(deviceId) {
+            allDevices[deviceId].connected = false;
+            renderAllLists();
+        }
+
+        function toggleIR(deviceId) {
+            allDevices[deviceId].irOn = !allDevices[deviceId].irOn;
+             if (!allDevices[deviceId].irOn) {
+                 // Optionally reset daily counters here, or let simulation handle it
+             }
+            renderAllLists();
+        }
+
+        function updateDashboardButton() {
+            const dashboardButton = document.getElementById('btn-go-to-dashboard');
+            let hasActiveDevice = false;
+            for (const deviceId in allDevices) {
+                const device = allDevices[deviceId];
+                if (device.savedName && (device.connected || device.irOn)) {
+                    hasActiveDevice = true;
+                    break;
+                }
+            }
+            dashboardButton.disabled = !hasActiveDevice;
+            dashboardButton.onclick = hasActiveDevice ? () => showMainPage('dashboard') : null;
+        }
+
+        // --- Settings Action ---
+        function updateCost() {
+             const costInput = document.getElementById('cost-kwh');
+             costPerKwh = parseFloat(costInput.value) || 0;
+             localStorage.setItem('energyCostPerKwh', costPerKwh); // Save cost
+             if(document.getElementById('page-dashboard').classList.contains('active')) {
+                 updateDashboardCards();
+             }
+        }
+        document.getElementById('cost-kwh').addEventListener('change', updateCost);
+        document.getElementById('cost-kwh').addEventListener('keyup', updateCost);
+
+
+        // --- Modal Logic ---
+
+        function openModal(type, deviceId) {
+            currentModalDevice = deviceId; // Store which device triggered the modal
+            if (type === 'smart') {
+                document.getElementById('modal-backdrop-smart').classList.add('active');
+                document.getElementById('modal-panel-smart').classList.add('active');
+                document.getElementById('modal-scan-state').style.display = 'block';
+                document.getElementById('modal-found-state').style.display = 'none';
+                setTimeout(() => showFoundDevices(deviceId), 2500);
+            } else {
+                document.getElementById('modal-ir-title').innerText = `Set up ${allDevices[deviceId].name}`;
+                document.getElementById('modal-backdrop-ir').classList.add('active');
+                document.getElementById('modal-panel-ir').classList.add('active');
+                // Make sure the confirm button knows which device to save
+                document.getElementById('btn-ir-confirm').onclick = () => confirmIRSetup(deviceId);
+            }
+        }
+
+
+        function closeModal(type) {
+            document.getElementById(`modal-backdrop-${type}`).classList.remove('active');
+            document.getElementById(`modal-panel-${type}`).classList.remove('active');
+            currentModalDevice = null;
+        }
+
+        function showFoundDevices(deviceId) {
+            // Check if modal is still supposed to be open for this device
+            if (currentModalDevice !== deviceId || !document.getElementById('modal-backdrop-smart').classList.contains('active')) {
+                return; // Modal closed or different device opened
+            }
+            document.getElementById('modal-scan-state').style.display = 'none';
+            document.getElementById('modal-found-state').style.display = 'block';
+
+            const listEl = document.getElementById('found-devices-list');
+            const device = allDevices[deviceId];
+            listEl.innerHTML = ''; // Clear previous
+
+            const fakeModels = [
+                `Sim-${device.name.split(' ')[0]} XY123`,
+                `SmartHome ${device.name.split(' ')[0]} G2`,
+                `Pro-Series ${device.name.split(' ')[0]}`
+            ];
+
+            fakeModels.forEach(modelName => {
+                // Pass deviceId AND modelName to confirm function
+                listEl.innerHTML += `
+                    <button class="w-full text-left p-3 rounded-lg hover:bg-gray-100" onclick="confirmSmartSetup('${deviceId}', '${modelName}')">
+                        ${device.icon} <span class="font-medium">${modelName}</span>
+                    </button>
+                `;
+            });
+        }
+
+        function confirmSmartSetup(deviceId, modelName) {
+            allDevices[deviceId].savedName = modelName;
+            allDevices[deviceId].connected = true;
+             allDevices[deviceId].kwh = 0;
+             allDevices[deviceId].waterUsageLiters = 0;
+             allDevices[deviceId].lastUpdate = 0;
+            closeModal('smart');
+            renderAllLists();
+        }
+
+        function confirmIRSetup(deviceId) {
+            const brand = document.getElementById('ir-brand-select').value;
+            allDevices[deviceId].savedName = `${brand} (IR)`;
+            allDevices[deviceId].irOn = false; // Start as "off"
+             allDevices[deviceId].kwh = 0;
+             allDevices[deviceId].waterUsageLiters = 0;
+             allDevices[deviceId].lastUpdate = 0;
+            closeModal('ir');
+            renderAllLists();
+        }
+
+        // --- Dashboard & Simulation ---
+
+        function startSimulation() {
+            if (simulationInterval) return; // Already running
+             updateCost();
+
+             // Reset daily counters for all devices when dashboard starts
+             for (const deviceId in allDevices) {
+                allDevices[deviceId].kwh = 0;
+                allDevices[deviceId].waterUsageLiters = 0;
+                allDevices[deviceId].lastUpdate = 0; // Reset last update time too
+             }
+             sessionStartTime = Date.now(); // Reset session start time
+
+            updateDashboardCards(); // Initial update
+            simulationInterval = setInterval(updateDashboardCards, 2000); // Update every 2 seconds
+            setTimeout(proactiveAiCheck, 10000); // Start proactive check after 10s
+        }
+
+        function stopSimulation() {
+            clearInterval(simulationInterval);
+            simulationInterval = null;
+            if (proactiveCheckTimeout) clearTimeout(proactiveCheckTimeout);
+            proactiveCheckTimeout = null;
+
+            document.querySelectorAll('.dash-card').forEach(card => card.classList.add('hidden'));
+        }
+
+        function updateDashboardCards() {
+             let totalKwhToday = 0;
+             let totalCostToday = 0;
+             let totalPhantomDrainKwh = 0;
+             const currentHour = new Date().getHours();
+             const isPeakHour = currentHour >= peakHoursStart && currentHour < peakHoursEnd;
+             const sessionDurationHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
+
+            for (const deviceId in allDevices) {
+                const device = allDevices[deviceId];
+                const card = document.getElementById(`dash-card-${deviceId}`);
+                if (!card) continue;
+
+                const isActive = device.savedName && (device.connected || device.irOn);
+
+                if (isActive) {
+                    card.classList.remove('hidden');
+                    const sim = runDeviceSimulation(device);
+                    const cost = device.kwh * costPerKwh;
+                    totalKwhToday += device.kwh; // Add active device kwh
+                    totalCostToday += cost;
+
+                    document.getElementById(`data-${deviceId}-power`).innerText = `${sim.livePower.toFixed(0)} W`;
+                    document.getElementById(`data-${deviceId}-kwh`).innerText = `${device.kwh.toFixed(2)} kWh`;
+                    document.getElementById(`data-${deviceId}-cost`).innerText = `₹ ${cost.toFixed(2)}`;
+
+                     if (device.id === 'washer' || device.id === 'dishwasher') {
+                        document.getElementById(`data-${deviceId}-water`).innerText = `${device.waterUsageLiters.toFixed(0)} L`;
+                    }
+
+                    const alertEl = document.getElementById(`alert-${deviceId}`);
+                    const alertTextEl = document.getElementById(`alert-text-${deviceId}`);
+                    const alertBtnEl = document.getElementById(`alert-btn-${deviceId}`);
+
+                    if (sim.onHighAlert) {
+                        alertTextEl.innerText = sim.alertText;
+                        alertEl.classList.remove('hidden');
+                        alertEl.classList.add('flex');
+                        alertBtnEl.classList.remove('hidden');
+                        device.currentAlert = sim.alertText;
+                    } else {
+                        alertEl.classList.add('hidden');
+                        alertEl.classList.remove('flex');
+                        alertBtnEl.classList.add('hidden');
+                        device.currentAlert = null;
+                    }
+
+                    const peakWarningEl = document.getElementById(`peak-warning-${deviceId}`);
+                    if (isPeakHour && sim.livePower > 100) {
+                        peakWarningEl.classList.remove('hidden');
+                         peakWarningEl.classList.add('flex');
+                    } else {
+                        peakWarningEl.classList.add('hidden');
+                         peakWarningEl.classList.remove('flex');
+                    }
+
+                } else {
+                    card.classList.add('hidden');
+                    // Accumulate Phantom Drain for SAVED but INACTIVE devices
+                    if (device.savedName) {
+                         const now = Date.now();
+                         // Initialize lastUpdate if needed for phantom calculation
+                         if (device.lastUpdate === 0) device.lastUpdate = now - 2000;
+                         const timeDiffHours = (now - device.lastUpdate) / (1000 * 60 * 60);
+                         const drain = phantomDrainPerDevicePerHour * timeDiffHours;
+                         totalPhantomDrainKwh += drain;
+                         // Don't add phantom drain to device.kwh if you want to track it separately
+                         // device.kwh += drain; // Optional: include phantom in device total
+                         device.lastUpdate = now; // Update timestamp even when off
+                    }
+                }
+            }
+             // Update Summary Cards
+             document.getElementById('summary-total-cost').innerText = `₹ ${totalCostToday.toFixed(2)}`;
+             const totalCarbon = totalKwhToday * carbonFactorKgPerKwh;
+             document.getElementById('summary-total-carbon').innerText = `${totalCarbon.toFixed(2)} kg CO₂e`;
+             document.getElementById('summary-phantom-drain').innerText = `${totalPhantomDrainKwh.toFixed(2)} kWh`;
+
+             // Estimate Monthly kWh
+             let estimatedMonthlyKwh = 0;
+             if (sessionDurationHours > 0.01) {
+                 // Project based on total active usage + phantom drain
+                const totalEffectiveKwh = totalKwhToday + totalPhantomDrainKwh;
+                const averageHourlyUsage = totalEffectiveKwh / sessionDurationHours;
+                estimatedMonthlyKwh = averageHourlyUsage * 24 * 30;
+             }
+              document.getElementById('summary-monthly-kwh').innerText = `${estimatedMonthlyKwh.toFixed(0)} kWh`;
+        }
+
+        function runDeviceSimulation(device) {
+            let livePower = 0;
+            let onHighAlert = false;
+            let alertText = "";
+            const now = Date.now();
+
+            if (device.lastUpdate === 0) {
+                 device.lastUpdate = now - 2000;
+            }
+
+            const timeDiffSeconds = (now - device.lastUpdate) / 1000;
+            const timeDiffHours = timeDiffSeconds / 3600;
+
+            let isHighPowerCycle = false;
+            if (device.id === 'fridge' || device.id === 'projector_smart' || device.id === 'projector_ir' || device.id === 'tv_ir') {
+                if (Math.random() > 0.7) {
+                    livePower = device.basePower + (Math.random() * device.cyclePower);
+                    if (livePower > (device.basePower + device.cyclePower * 0.9)) {
+                        onHighAlert = true;
+                        alertText = device.id === 'fridge' ? "High Power! Door may be open." : "High Power Usage Detected";
+                    }
+                    isHighPowerCycle = true;
+                } else {
+                    livePower = device.basePower + (Math.random() * 20); // Idle
+                }
+            } else {
+                livePower = device.basePower + (Math.random() * device.cyclePower);
+                if (livePower > (device.basePower + device.cyclePower * 0.95)) {
+                    onHighAlert = true;
+                    alertText = "High Power! Check filters or open windows.";
+                }
+                isHighPowerCycle = true;
+            }
+
+            // If IR device is OFF, power is effectively 0 for kWh calculation
+            if (device.type === 'ir' && !device.irOn) {
+                livePower = 0; // Actual power draw is 0
+                onHighAlert = false;
+                isHighPowerCycle = false;
+                // Don't accumulate kwh if it's off
+            } else {
+                 device.kwh += (livePower * timeDiffHours); // Accumulate kWh only if ON
+            }
+
+
+            device.lastUpdate = now; // Always update the timestamp
+
+            if ((device.id === 'washer' || device.id === 'dishwasher') && isHighPowerCycle && livePower > device.basePower * 1.5) {
+                device.waterUsageLiters += (Math.random() * 0.5 + 0.1) * timeDiffSeconds;
+            }
+
+            device.currentWatts = livePower; // Store current power regardless of on/off for display
+
+            return { livePower, onHighAlert, alertText };
+        }
+
+
+        // --- Chatbot & Gemini API ---
+        const chatWindow = document.getElementById('chat-window');
+        const chatInput = document.getElementById('chat-input');
+        const chatSubmit = document.getElementById('chat-submit');
+        const overallTipsBtn = document.getElementById('btn-overall-tips');
+
+        function addChatMessage(message, sender, isLoading = false) {
+            const bubble = document.createElement('div');
+            bubble.classList.add('w-full', 'flex', 'flex-col');
+
+            if (sender === 'user') {
+                bubble.classList.add('items-end');
+                bubble.innerHTML = `
+                    <div class="chat-bubble-user p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg shadow-md break-words">
+                        ${message}
+                    </div>
+                `;
+            } else { // AI
+                bubble.classList.add('items-start');
+                bubble.innerHTML = `
+                    <div class="chat-bubble-ai p-3 rounded-lg max-w-xs md:max-w-md lg:max-w-lg shadow-md break-words">
+                        ${isLoading ? '<span class="italic text-gray-600">Sparky is thinking...</span>' : message}
+                    </div>
+                `;
+                if (isLoading) {
+                    bubble.id = `ai-loading-${Date.now()}`;
+                }
+            }
+            chatWindow.appendChild(bubble);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            return bubble.id;
+        }
+
+        function updateLoadingMessage(loadingId, message) {
+             const loadingBubble = document.getElementById(loadingId);
+             if (loadingBubble) {
+                 const contentDiv = loadingBubble.querySelector('.chat-bubble-ai');
+                 if(contentDiv) {
+                     message = message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                     message = message.replace(/^\* /gm, '<br>• ').replace(/^\- /gm, '<br>• ');
+                     message = message.replace(/\n/g, '<br>');
+                     contentDiv.innerHTML = message;
+                 }
+             }
+        }
+
+        function sendQuickQuery(query) {
+             chatInput.value = query;
+             handleChatSubmit();
+        }
+
+
+        async function handleChatSubmit() {
+            const userQuery = chatInput.value.trim();
+            if (userQuery === '') return;
+
+            addChatMessage(userQuery, 'user');
+            chatInput.value = '';
+            chatSubmit.disabled = true;
+            chatInput.disabled = true;
+
+            const loadingId = addChatMessage("", 'ai', true);
+            const systemPrompt = generateSystemPrompt();
+
+            try {
+                const aiResponse = await callGeminiAPI(systemPrompt, userQuery);
+                updateLoadingMessage(loadingId, aiResponse);
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                updateLoadingMessage(loadingId, "Sorry, I'm having trouble connecting to my brain right now. Please try again in a moment.");
+            } finally {
+                chatSubmit.disabled = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        async function analyzeAlertWithGemini(deviceId) {
+            const device = allDevices[deviceId];
+            if (!device || !device.currentAlert) return;
+
+            const alertBtn = document.getElementById(`alert-btn-${deviceId}`);
+            alertBtn.disabled = true;
+            alertBtn.innerText = "Analyzing...";
+
+             addChatMessage(`🤔 Asking Sparky about the alert for ${device.savedName}...`, 'user');
+             const loadingId = addChatMessage("", 'ai', true);
+
+            const systemPrompt = generateSystemPrompt();
+            const userQuery = `I'm seeing an alert: "${device.currentAlert}" for my ${device.savedName}. It's currently using ${device.currentWatts.toFixed(0)} W. Can you explain what might be causing this and suggest what I should check?`;
+
+            try {
+                const aiResponse = await callGeminiAPI(systemPrompt, userQuery);
+                 updateLoadingMessage(loadingId, aiResponse);
+            } catch (error) {
+                console.error("Error analyzing alert:", error);
+                 updateLoadingMessage(loadingId, "Sorry, I couldn't analyze that alert right now.");
+            } finally {
+                alertBtn.disabled = false;
+                alertBtn.innerHTML = "✨ Ask Gemini Why";
+            }
+        }
+
+        async function getOverallTipsWithGemini() {
+            overallTipsBtn.disabled = true;
+            overallTipsBtn.innerHTML = "✨ Getting Tips...";
+
+             addChatMessage("💡 Asking Sparky for overall energy saving tips...", 'user');
+             const loadingId = addChatMessage("", 'ai', true);
+
+            const systemPrompt = generateSystemPrompt();
+            const userQuery = "Based on the devices currently active, can you give me some overall tips on how to save energy (and maybe water for relevant devices like washer/dishwasher) and potentially lower my electricity bill?";
+
+            try {
+                const aiResponse = await callGeminiAPI(systemPrompt, userQuery);
+                 updateLoadingMessage(loadingId, aiResponse);
+            } catch (error) {
+                console.error("Error getting tips:", error);
+                 updateLoadingMessage(loadingId, "Sorry, I couldn't get tips right now.");
+            } finally {
+                overallTipsBtn.disabled = false;
+                overallTipsBtn.innerHTML = "✨ Get Overall Savings Tips";
+            }
+        }
+
+        function generateSystemPrompt() {
+            let deviceContext = "The user has the following devices currently active and providing data:\n";
+            let activeDeviceCount = 0;
+            const currentHour = new Date().getHours();
+            const isPeakHour = currentHour >= peakHoursStart && currentHour < peakHoursEnd;
+            let totalKwhForPrompt = 0;
+             let totalPhantomDrainForPrompt = 0;
+
+            for (const deviceId in allDevices) {
+                const device = allDevices[deviceId];
+                if (device.savedName) { // Consider all saved devices for context
+                    const powerType = device.type === 'smart' ? "(Smart, Real-time)" : "(IR, Estimated)";
+                    const onState = (device.type === 'ir' && !device.irOn) ? "Off" : "On"; // Determine state for context
+
+                    if (onState === "On") {
+                        let waterText = "";
+                        if (device.id === 'washer' || device.id === 'dishwasher') {
+                             waterText = ` Water today: ${device.waterUsageLiters.toFixed(1)} L.`;
+                        }
+                        let peakText = (isPeakHour && device.currentWatts > 100) ? " (Currently PEAK HOUR!)" : "";
+                        deviceContext += `- ${device.savedName} ${powerType}: Using ${device.currentWatts.toFixed(0)} W${peakText}. Energy today: ${device.kwh.toFixed(2)} kWh.${waterText} ${device.currentAlert ? 'ALERT: '+device.currentAlert : ''}\n`;
+                        activeDeviceCount++;
+                        totalKwhForPrompt += device.kwh;
+                    } else {
+                         // Add phantom drain context
+                         const now = Date.now();
+                         if (device.lastUpdate === 0) device.lastUpdate = now - 2000;
+                         const timeDiffHours = (now - device.lastUpdate) / (1000 * 60 * 60);
+                         const drain = phantomDrainPerDevicePerHour * timeDiffHours;
+                         totalPhantomDrainForPrompt += drain;
+                         // Add context about saved but off devices if needed, could be verbose
+                         // deviceContext += `- ${device.savedName} ${powerType}: Currently Off (Contributing to phantom drain).\n`;
+                    }
+                }
+            }
+            if (activeDeviceCount === 0) {
+                deviceContext = "No devices are currently active or providing data.\n";
+            }
+
+            // Add summary data to context
+             deviceContext += `\nTotal Active Energy Today: ${totalKwhForPrompt.toFixed(2)} kWh.\n`;
+             deviceContext += `Estimated Phantom Drain Today: ${totalPhantomDrainForPrompt.toFixed(2)} kWh.\n`;
+
+            const sessionDurationHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
+            let estimatedMonthlyKwhForPrompt = 0;
+             if (sessionDurationHours > 0.01) {
+                const totalEffectiveKwh = totalKwhForPrompt + totalPhantomDrainForPrompt;
+                const averageHourlyUsage = totalEffectiveKwh / sessionDurationHours;
+                estimatedMonthlyKwhForPrompt = averageHourlyUsage * 24 * 30;
+             }
+             deviceContext += `Estimated total consumption this month (projection): ${estimatedMonthlyKwhForPrompt.toFixed(0)} kWh.\n`;
+
+
+            return `You are 'Sparky', a friendly and helpful AI energy assistant. Your entire purpose is to answer questions about the user's home energy consumption based *only* on the provided data.
+            - You MUST be talkative, use emojis (like 💡, 🌱, 💰,💧, ⚡), and be encouraging.
+            - **STRICT RULE: You MUST *only* answer questions related to the user's appliance energy usage (W, kWh), water usage (Liters for washer/dishwasher), cost savings (assume cost is ${costPerKwh.toFixed(2)} INR per kWh), estimated electricity bill, phantom drain, peak hour usage, carbon footprint, or analyzing device alerts based ONLY on the data provided below.**
+            - **STRICT RULE: If asked about ANYTHING else (e.g., weather, news, general knowledge, math problems, creative writing, how you work, personal opinions, unrelated device info), you MUST politely and firmly decline. Use ONLY ONE of these two phrases: "I can only help with questions about your connected appliances and their energy/water usage based on the data I have. How can I assist with that?" or "That's outside my scope as an energy assistant for your home devices. Can I help analyze your current usage?" DO NOT answer the off-topic question.**
+            - Use the specific device names, power readings (Watts), total energy usage (kWh), and water usage (Liters) provided to give concrete, actionable advice.
+            - **IMPORTANT:** Pay attention to PEAK HOUR status (18:00 - 22:00). If a high-draw device is running during peak hours, strongly suggest shifting its usage to off-peak times if possible (like running dishwasher/washer later).
+            - If a device has an active ALERT, mention it and explain possible causes or solutions related to that alert.
+            - For bill estimation questions, use the provided "Estimated total consumption this month (projection)" kWh and the cost per kWh to give a rough projection (e.g., Estimated Monthly Bill ≈ Monthly kWh * Cost per kWh). Acknowledge it's an estimate based on current usage trends during this session.
+            - Keep responses concise but informative. Use markdown-style bullet points (* item) for lists of tips.
+            - Current Date/Time: ${new Date().toLocaleString()} (Assume location is Hyderabad, India, Peak Hours: 18:00-22:00)
+
+            DEVICE DATA:
+            ${deviceContext}`;
+        }
+
+
+        chatSubmit.onclick = handleChatSubmit;
+        chatInput.onkeydown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleChatSubmit();
+            }
+        };
+
+        async function callGeminiAPI(systemPrompt, userQuery) {
+            const apiKey = "AIzaSyAMQig9ls99BXEM-R657hnp4b9gHT4RroQ";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const payload = {
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                contents: [{ parts: [{ text: userQuery }] }]
+            };
+
+            let response;
+            let delay = 1000;
+            for (let i = 0; i < 5; i++) {
+                try {
+                    response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
+                            return result.candidates[0].content.parts[0].text;
+                        } else {
+                            console.warn("API response structure unexpected:", result);
+                            if (result.candidates && result.candidates[0].finishReason && result.candidates[0].finishReason !== 'STOP') {
+                                return `Sorry, I couldn't generate a response due to content restrictions (${result.candidates[0].finishReason}). Could you rephrase your question?`;
+                            }
+                             if (!result.candidates || result.candidates.length === 0) {
+                                return "Sorry, I received an empty response. Could you try asking in a different way?";
+                             }
+                            return "Sorry, I received an incomplete response. Please try again.";
+                        }
+                    } else if (response.status === 429 || response.status >= 500) {
+                        console.log(`API request failed with status ${response.status}. Retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                    } else {
+                        const errorText = await response.text();
+                        console.error("API Error:", response.status, response.statusText, errorText);
+                        if (response.status === 400) {
+                             return `Sorry, there was an issue with the request. Please check the input or try rephrasing. (Error ${response.status})`;
+                        }
+                        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    }
+                } catch (error) {
+                     console.error(`Attempt ${i+1} failed:`, error);
+                    if (i === 4) {
+                         if (error.message.includes("Failed to fetch")) {
+                             return "Network error: Couldn't connect to the AI. Please check your internet connection.";
+                         }
+                        throw error;
+                    }
+                     console.log(`Network or fetch error. Retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+            throw new Error("API request failed after all retries.");
+        }
+
+        let proactiveCheckTimeout = null;
+        function proactiveAiCheck() {
+             if (proactiveCheckTimeout) clearTimeout(proactiveCheckTimeout);
+             if (!document.getElementById('page-dashboard').classList.contains('active')) return; // Only run if dashboard is visible
+
+             const acDevice = allDevices['ac_smart'] || allDevices['ac_ir'];
+             let shouldTriggerTip = false;
+             const currentHour = new Date().getHours();
+             const isPeakHourNow = currentHour >= peakHoursStart && currentHour < peakHoursEnd;
+
+             if (acDevice && acDevice.savedName && (acDevice.connected || acDevice.irOn) && acDevice.currentWatts > (acDevice.basePower + acDevice.cyclePower * 0.8)) {
+                 if(Math.random() < 0.2) { // 20% chance if AC is high
+                    shouldTriggerTip = true;
+                 }
+             }
+
+             if (shouldTriggerTip) {
+                 let tipMessage = "🌱 Hey there! I noticed the Air Conditioner is using quite a bit of power right now. Just a friendly reminder to check if windows or doors are closed to keep things efficient! 💰";
+                 if (isPeakHourNow) {
+                     tipMessage = "⚡ Woah! The Air Conditioner is running high during peak hours (6 PM - 10 PM)! If possible, maybe pre-cool the room a bit earlier or adjust the temperature slightly to save on higher costs? 🤔💰";
+                 }
+                 addChatMessage(tipMessage, 'ai');
+             }
+
+             const nextCheckDelay = 30000 + Math.random() * 30000; // 30-60 seconds
+             proactiveCheckTimeout = setTimeout(proactiveAiCheck, nextCheckDelay);
+        }
+
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedCost = localStorage.getItem('energyCostPerKwh');
+            if (savedCost) {
+                costPerKwh = parseFloat(savedCost);
+                document.getElementById('cost-kwh').value = costPerKwh.toFixed(2);
+            }
+             document.getElementById('cost-kwh').addEventListener('change', () => {
+                  costPerKwh = parseFloat(document.getElementById('cost-kwh').value) || 0;
+                  localStorage.setItem('energyCostPerKwh', costPerKwh);
+                  if(document.getElementById('page-dashboard').classList.contains('active')) {
+                       updateDashboardCards();
+                  }
+             });
+
+
+            showMainPage('saved');
+            showAddPage('smart');
+            addChatMessage("Hello! I'm Sparky 🌱. I'm connected to your active devices. Ask me how you can save energy, water, or analyze alerts!", 'ai');
+        });
+
+    </script>
+</body>
+</html>
+
